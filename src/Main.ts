@@ -128,6 +128,7 @@ class Main extends egret.DisplayObjectContainer
      */
     private createGameScene():void 
     {
+        //添背景
         var sky:egret.Bitmap = this.createBitmapByName("bg_jpg");
         this.addChild(sky);
         var stageW:number = this.stage.stageWidth;
@@ -135,66 +136,23 @@ class Main extends egret.DisplayObjectContainer
         sky.width = stageW;
         sky.height = stageH;
 
+        //创建Player类型的people
         var people : Player = new Player();
         people.x = 300;
         people.y = 300;
         this.addChild(people);
+        people.idle();
         //people.idle(100,100);
-        
-        //让物体跟着鼠标移动
-        this.stage.addEventListener(egret.TouchEvent.TOUCH_BEGIN,(evt:egret.TouchEvent)=>{
-            people.x=evt.localX;
-            people.y=evt.localY;
+
+        //让物体跟着鼠标移动(未加缓动)
+        this.stage.addEventListener(egret.TouchEvent.TOUCH_BEGIN,( evt:egret.TouchEvent)=>{
+            people.x = evt.localX;
+            people.y = evt.localY;
         },this);
 
-        //var topMask = new egret.Shape();
-        //topMask.graphics.beginFill(0x000000, 0.5);
-        //topMask.graphics.drawRect(0, 0, stageW, 172);
-        //topMask.graphics.endFill();
-        //topMask.y = 33;
-        //this.addChild(topMask);
 
-        var icon:egret.Bitmap = this.createBitmapByName("egret_icon_png");
-        this.addChild(icon);
-        icon.x = 26;
-        icon.y = 33;
-
-        var line = new egret.Shape();
-        line.graphics.lineStyle(2,0xffffff);
-        line.graphics.moveTo(0,0);
-        line.graphics.lineTo(0,117);
-        line.graphics.endFill();
-        line.x = 172;
-        line.y = 61;
-        this.addChild(line);
-
-
-        var colorLabel = new egret.TextField();
-        colorLabel.textColor = 0xffffff;
-        //colorLabel.width = stageW - 172;
-        colorLabel.textAlign = "center";
-        colorLabel.text = "Hello Egret";
-        colorLabel.size = 24;
-        colorLabel.x = 172;
-        colorLabel.y = 80;
-        this.addChild(colorLabel);
-
-        var textfield = new egret.TextField();
-        this.addChild(textfield);
-        textfield.alpha = 0;
-        //textfield.width = stageW - 172;
-        textfield.textAlign = egret.HorizontalAlign.CENTER;
-        textfield.size = 24;
-        textfield.textColor = 0xffffff;
-        textfield.x = 172;
-        textfield.y = 135;
-        this.textfield = textfield;
-
-        //根据name关键字，异步获取一个json配置文件，name属性请参考resources/resource.json配置文件的内容。
-        // Get asynchronously a json configuration file according to name keyword. As for the property of name please refer to the configuration file of resources/resource.json.
-        RES.getResAsync("description_json", this.startAnimation, this)
     }
-
+   
     /**
      * 根据name关键字创建一个Bitmap对象。name属性请参考resources/resource.json配置文件的内容。
      * Create a Bitmap object according to name keyword.As for the property of name please refer to the configuration file of resources/resource.json.
@@ -207,56 +165,17 @@ class Main extends egret.DisplayObjectContainer
         return result;
     }
 
-    /**
-     * 描述文件加载成功，开始播放动画
-     * Description file loading is successful, start to play the animation
-     */
-    private startAnimation(result:Array<any>):void 
-    {
-        var self:any = this;
 
-        var parser = new egret.HtmlTextParser();
-        var textflowArr:Array<Array<egret.ITextElement>> = [];
-        for (var i:number = 0; i < result.length; i++) 
-        {
-            textflowArr.push(parser.parser(result[i]));
-        }
-
-        var textfield = self.textfield;
-        var count = -1;
-        var change:Function = function () {
-            count++;
-            if (count >= textflowArr.length) 
-            {
-                count = 0;
-            }
-            var lineArr = textflowArr[count];
-
-            self.changeDescription(textfield, lineArr);
-
-            var tw = egret.Tween.get(textfield);
-            tw.to({"alpha": 1}, 200);
-            tw.wait(2000);
-            tw.to({"alpha": 0}, 200);
-            tw.call(change, self);
-        };
-
-        change();
-    }
-
-    /**
-     * 切换描述内容
-     * Switch to described content
-     */
-    private changeDescription(textfield:egret.TextField, textFlow:Array<egret.ITextElement>):void 
-    {
-        textfield.textFlow = textFlow;
-    }
+    
 }
 
 class Player extends egret.DisplayObjectContainer
 {
     private loadingView:LoadingUI;
+    _state:StateMachine;
+    _people:egret.Bitmap;
+    _ifIdle:boolean;
+    _ifWalk:boolean;
 
     public constructor() 
     {
@@ -273,89 +192,23 @@ class Player extends egret.DisplayObjectContainer
 
         //初始化Resource资源加载库
         //initiate Resource loading library
-        RES.addEventListener(RES.ResourceEvent.CONFIG_COMPLETE, this.onConfigComplete, this);
+        RES.addEventListener(RES.ResourceEvent.CONFIG_COMPLETE, this.createPeople, this);
         RES.loadConfig("resource/default.res.json", "resource/");
     }
-
-    /**
-     * 配置文件加载完成,开始预加载preload资源组。
-     * configuration file loading is completed, start to pre-load the preload resource group
-     */
-    private onConfigComplete(event:RES.ResourceEvent):void 
-    {
-        RES.removeEventListener(RES.ResourceEvent.CONFIG_COMPLETE, this.onConfigComplete, this);
-        RES.addEventListener(RES.ResourceEvent.GROUP_COMPLETE, this.onResourceLoadComplete, this);
-        RES.addEventListener(RES.ResourceEvent.GROUP_LOAD_ERROR, this.onResourceLoadError, this);
-        RES.addEventListener(RES.ResourceEvent.GROUP_PROGRESS, this.onResourceProgress, this);
-        RES.addEventListener(RES.ResourceEvent.ITEM_LOAD_ERROR, this.onItemLoadError, this);
-        RES.loadGroup("preload");
-    }
-
-    /**
-     * preload资源组加载完成
-     * Preload resource group is loaded
-     */
-    private onResourceLoadComplete(event:RES.ResourceEvent):void 
-    {
-        if (event.groupName == "preload") 
-        {
-            this.stage.removeChild(this.loadingView);
-            RES.removeEventListener(RES.ResourceEvent.GROUP_COMPLETE, this.onResourceLoadComplete, this);
-            RES.removeEventListener(RES.ResourceEvent.GROUP_LOAD_ERROR, this.onResourceLoadError, this);
-            RES.removeEventListener(RES.ResourceEvent.GROUP_PROGRESS, this.onResourceProgress, this);
-            RES.removeEventListener(RES.ResourceEvent.ITEM_LOAD_ERROR, this.onItemLoadError, this);
-            this.createPeople();
-        }
-    }
-
-    /**
-     * 资源组加载出错
-     *  The resource group loading failed
-     */
-    private onItemLoadError(event:RES.ResourceEvent):void 
-    {
-        console.warn("Url:" + event.resItem.url + " has failed to load");
-    }
-
-    /**
-     * 资源组加载出错
-     *  The resource group loading failed
-     */
-    private onResourceLoadError(event:RES.ResourceEvent):void 
-    {
-        //TODO
-        console.warn("Group:" + event.groupName + " has failed to load");
-        //忽略加载失败的项目
-        //Ignore the loading failed projects
-        this.onResourceLoadComplete(event);
-    }
-
-    /**
-     * preload资源组加载进度
-     * Loading process of preload resource group
-     */
-    private onResourceProgress(event:RES.ResourceEvent):void 
-    {
-        if (event.groupName == "preload") 
-        {
-            this.loadingView.setProgress(event.itemsLoaded, event.itemsTotal);
-        }
-    }
-
-    private createBitmapByName(name:string):egret.Bitmap 
-    {
-        var result = new egret.Bitmap();
-        var texture:egret.Texture = RES.getRes(name);
-        result.texture = texture;
-        return result;
-    }
     
-    _state:StateMachine = new StateMachine();
+    
+  
+    
 
     public createPeople():void
     {
-        var _people:egret.Bitmap = this.createBitmapByName("1_jpg");
-        this.addChild(_people);
+        this._state = new StateMachine();
+        this._people = new egret.Bitmap();
+        var _texture:egret.Texture = RES.getRes("1_jpg");
+        this._people.texture = _texture;
+        this._ifIdle = true;
+        this._ifWalk = false;
+        this.addChild(this._people);
     }
 
     public idle()
@@ -365,10 +218,40 @@ class Player extends egret.DisplayObjectContainer
 
     public walk()
     {
-        this._state.setState(new PeopleIdleState(this));
+        //this._state.setState(new PeopleWalkState(this));
+    }
+
+    public StartIdle()
+    {
+       var list = ["1_jpg","2_jpg","3_jpg","4_jpg"];
+       var num:number = -1;
+       num = num+0.2;
+        if(num >list.length)
+           {num = 0;}
+           this._people.texture = RES.getRes(list[num]);
+           var _people2:egret.Bitmap;
+           _people2.texture = RES.getRes(list[num+1]);
+       egret.setTimeout(()=>
+       {
+           
+           this._people.texture;
+       },_people2.texture,2000)
+
+       //egret.Ticker.getInstance().register(()=>
+       //{
+         //  num = num +1;
+           //if(num>list.length)
+           //{
+             //  num = 0;
+           //}
+           //this._people.texture = RES.getRes(list[Math.floor(num)]);
+       //},this);
+
+       
     }
 }
 
+//状态机
 class StateMachine 
 {
     _currentMachine: State;
@@ -395,7 +278,7 @@ interface State
 
 }
 
-//继承State
+//继承State （正确）
 class PeopleState implements State
 {
     //stateMachine:StateMachine;
@@ -417,14 +300,39 @@ class PeopleState implements State
     }
 }
 
+class PeopleIdle_1State extends PeopleState
+{
+    onEnter()
+    {
+       
+    }
+
+    onExit()
+    {
+
+    }
+}
+
 class PeopleIdleState extends PeopleState
+{
+    onEnter()
+    {
+       this._people._ifIdle = true;
+       this._people.StartIdle();
+    }
+
+    onExit()
+    {
+        this._people._ifIdle = false;
+    }
+}
+
+class PeopleWalkState extends PeopleState
 {
     //super();
     onEnter()
     {
-        //egret.setTimeout(()=>{
-        //   this._people.idle();
-        //},this,5000)
+
     }
 
     onExit()
