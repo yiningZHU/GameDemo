@@ -39,7 +39,29 @@ var egret;
          * @param italic 是否斜体
          */
         function measureText(text, fontFamily, fontSize, bold, italic) {
-            var font = egret.TextField.default_fontFamily;
+            var font;
+            var arr;
+            if (fontFamily.indexOf(", ") != -1) {
+                arr = fontFamily.split(", ");
+            }
+            else if (fontFamily.indexOf(",") != -1) {
+                arr = fontFamily.split(",");
+                var length_1 = arr.length;
+                for (var i = 0; i < length_1; i++) {
+                    var fontFamily_1 = arr[i];
+                    //暂时先不考虑带有引号的情况
+                    if (egret.fontMapping[fontFamily_1]) {
+                        font = egret.fontMapping[fontFamily_1];
+                        break;
+                    }
+                }
+            }
+            else {
+                font = egret.fontMapping[fontFamily];
+            }
+            if (!font) {
+                font = "/system/fonts/DroidSansFallback.ttf";
+            }
             egret_native.Label.createLabel(font, fontSize, "", 0);
             return egret_native.Label.getTextSize(text)[0];
         }
@@ -101,8 +123,9 @@ var egret;
                 this.$lineWidth = 0;
                 this.$strokeStyle = "#000000";
                 this.$fillStyle = "#000000";
-                this.$font = "10px sans-serif";
+                this.$font = "normal normal 10px sans-serif";
                 this.$fontSize = 10;
+                this.$fontFamily = "";
                 this.clipRectArray = null;
                 this.$saveList = [];
                 this.$clipRect = new egret.Rectangle();
@@ -267,14 +290,43 @@ var egret;
                 ,function (value) {
                     this.$font = value;
                     var arr = value.split(" ");
-                    var length = arr.length;
-                    for (var i = 0; i < length; i++) {
-                        var txt = arr[i];
-                        if (txt.indexOf("px") != -1) {
-                            this.$fontSize = parseInt(txt.replace("px", ""));
-                            //console.log("set font" + this.$lineWidth);
-                            return;
+                    var sizeTxt = arr[2];
+                    if (sizeTxt.indexOf("px") != -1) {
+                        this.$fontSize = parseInt(sizeTxt.replace("px", ""));
+                    }
+                    if (egret.useFontMapping) {
+                        var fontFamilyText = void 0;
+                        if (arr.length == 4) {
+                            fontFamilyText = arr[3];
                         }
+                        else {
+                            fontFamilyText = arr.slice(3).join(" ");
+                        }
+                        if (fontFamilyText.indexOf(", ") != -1) {
+                            arr = fontFamilyText.split(", ");
+                        }
+                        else if (fontFamilyText.indexOf(",") != -1) {
+                            arr = fontFamilyText.split(",");
+                            var length_2 = arr.length;
+                            for (var i = 0; i < length_2; i++) {
+                                var fontFamily = arr[i];
+                                //暂时先不考虑带有引号的情况
+                                if (egret.fontMapping[fontFamily]) {
+                                    this.$fontFamily = egret.fontMapping[fontFamily];
+                                    return;
+                                }
+                            }
+                        }
+                        else {
+                            this.$fontFamily = egret.fontMapping[fontFamilyText];
+                        }
+                        if (!this.$fontFamily) {
+                            this.$fontFamily = "/system/fonts/DroidSansFallback.ttf";
+                        }
+                    }
+                    else {
+                        //兼容旧版本直接将 default_fontFamily 设置为字体路径的情况
+                        this.$fontFamily = egret.TextField.default_fontFamily;
                     }
                 }
             );
@@ -540,9 +592,9 @@ var egret;
                     }
                     var index = this.$clipList.indexOf(this.$saveCount);
                     if (index != -1) {
-                        var length = this.$clipList.length;
-                        this.$clipList.splice(index, length - index);
-                        for (; index < length; index++) {
+                        var length_3 = this.$clipList.length;
+                        this.$clipList.splice(index, length_3 - index);
+                        for (; index < length_3; index++) {
                             this.checkSurface();
                             native.$cmdManager.setContext(this.$nativeContext);
                             native.$cmdManager.popClip();
@@ -666,9 +718,8 @@ var egret;
              */
             p.fillText = function (text, x, y, maxWidth) {
                 //console.log("drawText" + text);
-                var font = egret.TextField.default_fontFamily;
                 native.$cmdManager.setContext(egret_native.Label);
-                var s1 = native.$cmdManager.pushString(font);
+                var s1 = native.$cmdManager.pushString(this.$fontFamily);
                 var s2 = native.$cmdManager.pushString("");
                 native.$cmdManager.createLabel(s1, this.$fontSize, s2, this.$hasStrokeText ? this.$lineWidth : 0);
                 this.$hasStrokeText = false;
@@ -685,9 +736,8 @@ var egret;
              * @platform Web,Native
              */
             p.measureText = function (text) {
-                var font = egret.TextField.default_fontFamily;
                 native.$cmdManager.setContext(egret_native.Label);
-                var s1 = native.$cmdManager.pushString(font);
+                var s1 = native.$cmdManager.pushString(this.$fontFamily);
                 var s2 = native.$cmdManager.pushString("");
                 native.$cmdManager.createLabel(s1, this.$fontSize, s2, this.$hasStrokeText ? this.$lineWidth : 0);
                 return { width: egret_native.Label.getTextSize(text)[0] };
@@ -870,8 +920,9 @@ var egret;
                 this.$lineWidth = 0;
                 this.$strokeStyle = "#000000";
                 this.$fillStyle = "#000000";
-                this.$font = "10px sans-serif";
+                this.$font = "normal normal 10px sans-serif";
                 this.$fontSize = 10;
+                this.$fontFamily = "";
                 this.clipRectArray = null;
                 this.$saveList = [];
                 this.$clipRect = new egret.Rectangle();
@@ -1026,14 +1077,43 @@ var egret;
                 ,function (value) {
                     this.$font = value;
                     var arr = value.split(" ");
-                    var length = arr.length;
-                    for (var i = 0; i < length; i++) {
-                        var txt = arr[i];
-                        if (txt.indexOf("px") != -1) {
-                            this.$fontSize = parseInt(txt.replace("px", ""));
-                            //console.log("set font" + this.$lineWidth);
-                            return;
+                    var sizeTxt = arr[2];
+                    if (sizeTxt.indexOf("px") != -1) {
+                        this.$fontSize = parseInt(sizeTxt.replace("px", ""));
+                    }
+                    if (egret.useFontMapping) {
+                        var fontFamilyText = void 0;
+                        if (arr.length == 4) {
+                            fontFamilyText = arr[3];
                         }
+                        else {
+                            fontFamilyText = arr.slice(3).join(" ");
+                        }
+                        if (fontFamilyText.indexOf(", ") != -1) {
+                            arr = fontFamilyText.split(", ");
+                        }
+                        else if (fontFamilyText.indexOf(",") != -1) {
+                            arr = fontFamilyText.split(",");
+                            var length_4 = arr.length;
+                            for (var i = 0; i < length_4; i++) {
+                                var fontFamily = arr[i];
+                                //暂时先不考虑带有引号的情况
+                                if (egret.fontMapping[fontFamily]) {
+                                    this.$fontFamily = egret.fontMapping[fontFamily];
+                                    return;
+                                }
+                            }
+                        }
+                        else {
+                            this.$fontFamily = egret.fontMapping[fontFamilyText];
+                        }
+                        if (!this.$fontFamily) {
+                            this.$fontFamily = "/system/fonts/DroidSansFallback.ttf";
+                        }
+                    }
+                    else {
+                        //兼容旧版本直接将 default_fontFamily 设置为字体路径的情况
+                        this.$fontFamily = egret.TextField.default_fontFamily;
                     }
                 }
             );
@@ -1279,9 +1359,9 @@ var egret;
                     }
                     var index = this.$clipList.indexOf(this.$saveCount);
                     if (index != -1) {
-                        var length = this.$clipList.length;
-                        this.$clipList.splice(index, length - index);
-                        for (; index < length; index++) {
+                        var length_5 = this.$clipList.length;
+                        this.$clipList.splice(index, length_5 - index);
+                        for (; index < length_5; index++) {
                             this.checkSurface();
                             this.$nativeContext.popClip();
                         }
@@ -1400,8 +1480,7 @@ var egret;
              */
             p.fillText = function (text, x, y, maxWidth) {
                 //console.log("drawText" + text);
-                var font = egret.TextField.default_fontFamily;
-                egret_native.Label.createLabel(font, this.$fontSize, "", this.$hasStrokeText ? this.$lineWidth : 0);
+                egret_native.Label.createLabel(this.$fontFamily, this.$fontSize, "", this.$hasStrokeText ? this.$lineWidth : 0);
                 this.$hasStrokeText = false;
                 egret_native.Label.drawText(text, x, y);
             };
@@ -1415,8 +1494,7 @@ var egret;
              * @platform Web,Native
              */
             p.measureText = function (text) {
-                var font = egret.TextField.default_fontFamily;
-                egret_native.Label.createLabel(font, this.$fontSize, "", this.$hasStrokeText ? this.$lineWidth : 0);
+                egret_native.Label.createLabel(this.$fontFamily, this.$fontSize, "", this.$hasStrokeText ? this.$lineWidth : 0);
                 return { width: egret_native.Label.getTextSize(text)[0] };
             };
             /**
@@ -1847,10 +1925,12 @@ var egret;
                 this.context.restore();
             };
             /**
-             * 获取指定坐标的像素
+             * 获取指定区域的像素
              */
-            p.getPixel = function (x, y) {
-                return this.context.getImageData(x, y, 1, 1).data;
+            p.getPixels = function (x, y, width, height) {
+                if (width === void 0) { width = 1; }
+                if (height === void 0) { height = 1; }
+                return this.context.getImageData(x, y, width, height).data;
             };
             /**
              * 转换成base64字符串，如果图片（或者包含的图片）跨域，则返回null
@@ -1936,8 +2016,9 @@ var egret;
                 this.$lineWidth = 0;
                 this.$strokeStyle = "#000000";
                 this.$fillStyle = "#000000";
-                this.$font = "10px sans-serif";
+                this.$font = "normal normal 10px sans-serif";
                 this.$fontSize = 10;
+                this.$fontFamily = "";
                 this.clipRectArray = null;
                 this.$saveList = [];
                 this.$clipRectArray = [];
@@ -2097,14 +2178,43 @@ var egret;
                 ,function (value) {
                     this.$font = value;
                     var arr = value.split(" ");
-                    var length = arr.length;
-                    for (var i = 0; i < length; i++) {
-                        var txt = arr[i];
-                        if (txt.indexOf("px") != -1) {
-                            this.$fontSize = parseInt(txt.replace("px", ""));
-                            //console.log("set font" + this.$lineWidth);
-                            return;
+                    var sizeTxt = arr[2];
+                    if (sizeTxt.indexOf("px") != -1) {
+                        this.$fontSize = parseInt(sizeTxt.replace("px", ""));
+                    }
+                    if (egret.useFontMapping) {
+                        var fontFamilyText = void 0;
+                        if (arr.length == 4) {
+                            fontFamilyText = arr[3];
                         }
+                        else {
+                            fontFamilyText = arr.slice(3).join(" ");
+                        }
+                        if (fontFamilyText.indexOf(", ") != -1) {
+                            arr = fontFamilyText.split(", ");
+                        }
+                        else if (fontFamilyText.indexOf(",") != -1) {
+                            arr = fontFamilyText.split(",");
+                            var length_6 = arr.length;
+                            for (var i = 0; i < length_6; i++) {
+                                var fontFamily = arr[i];
+                                //暂时先不考虑带有引号的情况
+                                if (egret.fontMapping[fontFamily]) {
+                                    this.$fontFamily = egret.fontMapping[fontFamily];
+                                    return;
+                                }
+                            }
+                        }
+                        else {
+                            this.$fontFamily = egret.fontMapping[fontFamilyText];
+                        }
+                        if (!this.$fontFamily) {
+                            this.$fontFamily = "/system/fonts/DroidSansFallback.ttf";
+                        }
+                    }
+                    else {
+                        //兼容旧版本直接将 default_fontFamily 设置为字体路径的情况
+                        this.$fontFamily = egret.TextField.default_fontFamily;
                     }
                 }
             );
@@ -2496,9 +2606,8 @@ var egret;
              */
             p.fillText = function (text, x, y, maxWidth) {
                 //console.log("drawText" + text);
-                var font = egret.TextField.default_fontFamily;
                 native.$cmdManager.setContext(this.$nativeContext);
-                var s1 = native.$cmdManager.pushString(font);
+                var s1 = native.$cmdManager.pushString(this.$fontFamily);
                 var s2 = native.$cmdManager.pushString("");
                 native.$cmdManager.createLabel(s1, this.$fontSize, s2, this.$hasStrokeText ? this.$lineWidth : 0);
                 this.$hasStrokeText = false;
@@ -2515,11 +2624,12 @@ var egret;
              * @platform Web,Native
              */
             p.measureText = function (text) {
-                var font = egret.TextField.default_fontFamily;
                 native.$cmdManager.setContext(egret_native.Label);
-                var s1 = native.$cmdManager.pushString(font);
+                var s1 = native.$cmdManager.pushString(this.$fontFamily);
                 var s2 = native.$cmdManager.pushString("");
                 native.$cmdManager.createLabel(s1, this.$fontSize, s2, this.$hasStrokeText ? this.$lineWidth : 0);
+                //同步更新
+                native.$cmdManager.flush();
                 return { width: egret_native.Label.getTextSize(text)[0] };
             };
             /**
@@ -2562,22 +2672,22 @@ var egret;
                     height = image.height;
                 }
                 else {
-                    if (!width) {
+                    if (width == void 0) {
                         width = image.width;
                     }
-                    if (!height) {
+                    if (height == void 0) {
                         height = image.height;
                     }
-                    if (!surfaceOffsetX) {
+                    if (surfaceOffsetX == void 0) {
                         surfaceOffsetX = 0;
                     }
-                    if (!surfaceOffsetY) {
+                    if (surfaceOffsetY == void 0) {
                         surfaceOffsetY = 0;
                     }
-                    if (!surfaceImageWidth) {
+                    if (surfaceImageWidth == void 0) {
                         surfaceImageWidth = width;
                     }
-                    if (!surfaceImageHeight) {
+                    if (surfaceImageHeight == void 0) {
                         surfaceImageHeight = height;
                     }
                 }
@@ -2711,7 +2821,6 @@ var egret;
                 else {
                     console.log("meshVertices not exist");
                 }
-                this.vertices = vertices;
             };
             /**
              * @private
@@ -2755,7 +2864,13 @@ var egret;
              */
             p.setGlobalShader = function (filter) {
                 native.$cmdManager.setContext(this.$nativeContext);
-                var s1 = native.$cmdManager.pushString(filter);
+                var s1;
+                if (filter) {
+                    s1 = native.$cmdManager.pushString(filter.$toJson());
+                }
+                else {
+                    s1 = native.$cmdManager.pushString("");
+                }
                 native.$cmdManager.setGlobalShader(s1);
             };
             return NativeCanvasRenderContext;
@@ -2818,8 +2933,9 @@ var egret;
                 this.$lineWidth = 0;
                 this.$strokeStyle = "#000000";
                 this.$fillStyle = "#000000";
-                this.$font = "10px sans-serif";
+                this.$font = "normal normal 10px sans-serif";
                 this.$fontSize = 10;
+                this.$fontFamily = "";
                 this.clipRectArray = null;
                 this.$saveList = [];
                 this.$clipRectArray = [];
@@ -2970,14 +3086,43 @@ var egret;
                 ,function (value) {
                     this.$font = value;
                     var arr = value.split(" ");
-                    var length = arr.length;
-                    for (var i = 0; i < length; i++) {
-                        var txt = arr[i];
-                        if (txt.indexOf("px") != -1) {
-                            this.$fontSize = parseInt(txt.replace("px", ""));
-                            //console.log("set font" + this.$lineWidth);
-                            return;
+                    var sizeTxt = arr[2];
+                    if (sizeTxt.indexOf("px") != -1) {
+                        this.$fontSize = parseInt(sizeTxt.replace("px", ""));
+                    }
+                    if (egret.useFontMapping) {
+                        var fontFamilyText = void 0;
+                        if (arr.length == 4) {
+                            fontFamilyText = arr[3];
                         }
+                        else {
+                            fontFamilyText = arr.slice(3).join(" ");
+                        }
+                        if (fontFamilyText.indexOf(", ") != -1) {
+                            arr = fontFamilyText.split(", ");
+                        }
+                        else if (fontFamilyText.indexOf(",") != -1) {
+                            arr = fontFamilyText.split(",");
+                            var length_7 = arr.length;
+                            for (var i = 0; i < length_7; i++) {
+                                var fontFamily = arr[i];
+                                //暂时先不考虑带有引号的情况
+                                if (egret.fontMapping[fontFamily]) {
+                                    this.$fontFamily = egret.fontMapping[fontFamily];
+                                    return;
+                                }
+                            }
+                        }
+                        else {
+                            this.$fontFamily = egret.fontMapping[fontFamilyText];
+                        }
+                        if (!this.$fontFamily) {
+                            this.$fontFamily = "/system/fonts/DroidSansFallback.ttf";
+                        }
+                    }
+                    else {
+                        //兼容旧版本直接将 default_fontFamily 设置为字体路径的情况
+                        this.$fontFamily = egret.TextField.default_fontFamily;
                     }
                 }
             );
@@ -3345,8 +3490,7 @@ var egret;
              */
             p.fillText = function (text, x, y, maxWidth) {
                 //console.log("drawText" + text);
-                var font = egret.TextField.default_fontFamily;
-                this.$nativeContext.createLabel(font, this.$fontSize, "", this.$hasStrokeText ? this.$lineWidth : 0);
+                this.$nativeContext.createLabel(this.$fontFamily, this.$fontSize, "", this.$hasStrokeText ? this.$lineWidth : 0);
                 this.$hasStrokeText = false;
                 this.$nativeContext.drawText(text, x, y);
             };
@@ -3360,8 +3504,7 @@ var egret;
              * @platform Web,Native
              */
             p.measureText = function (text) {
-                var font = egret.TextField.default_fontFamily;
-                egret_native.Label.createLabel(font, this.$fontSize, "", this.$hasStrokeText ? this.$lineWidth : 0);
+                egret_native.Label.createLabel(this.$fontFamily, this.$fontSize, "", this.$hasStrokeText ? this.$lineWidth : 0);
                 return { width: egret_native.Label.getTextSize(text)[0] };
             };
             /**
@@ -3404,22 +3547,22 @@ var egret;
                     height = image.height;
                 }
                 else {
-                    if (!width) {
+                    if (width == void 0) {
                         width = image.width;
                     }
-                    if (!height) {
+                    if (height == void 0) {
                         height = image.height;
                     }
-                    if (!surfaceOffsetX) {
+                    if (surfaceOffsetX == void 0) {
                         surfaceOffsetX = 0;
                     }
-                    if (!surfaceOffsetY) {
+                    if (surfaceOffsetY == void 0) {
                         surfaceOffsetY = 0;
                     }
-                    if (!surfaceImageWidth) {
+                    if (surfaceImageWidth == void 0) {
                         surfaceImageWidth = width;
                     }
-                    if (!surfaceImageHeight) {
+                    if (surfaceImageHeight == void 0) {
                         surfaceImageHeight = height;
                     }
                 }
@@ -3540,7 +3683,6 @@ var egret;
                 else {
                     console.log("meshVertices not exist");
                 }
-                this.vertices = vertices;
             };
             /**
              * @private
@@ -3575,6 +3717,14 @@ var egret;
                     res.data = res.pixelData;
                 }
                 return res;
+            };
+            /**
+             * @private
+             * 设置全局shader
+             * @param filter filter属性生成的json
+             */
+            p.setGlobalShader = function (filter) {
+                egret_native.Graphics.setGlobalShader(filter);
             };
             return OldNativeCanvasRenderContext;
         }(egret.HashObject));
@@ -3798,6 +3948,10 @@ var egret;
              * @param useMaxSize 若传入true，则将改变后的尺寸与已有尺寸对比，保留较大的尺寸。
              */
             p.resize = function (width, height, useMaxSize) {
+                //resize 之前要提交下绘制命令
+                if (native.$supportCmdBatch) {
+                    native.$cmdManager.flush();
+                }
                 var surface = this.surface;
                 surface.width = width;
                 surface.height = height;
@@ -3811,6 +3965,10 @@ var egret;
              * @param offsetY 原始图像数据在改变后缓冲区的绘制起始位置y
              */
             p.resizeTo = function (width, height, offsetX, offsetY) {
+                //resize 之前要提交下绘制命令
+                if (native.$supportCmdBatch) {
+                    native.$cmdManager.flush();
+                }
                 if (!sharedCanvas) {
                     sharedCanvas = createCanvas();
                 }
@@ -3858,10 +4016,12 @@ var egret;
                 this.context.restore();
             };
             /**
-             * 获取指定坐标的像素
+             * 获取指定区域的像素
              */
-            p.getPixel = function (x, y) {
-                return this.context.getImageData(x, y, 1, 1).data;
+            p.getPixels = function (x, y, width, height) {
+                if (width === void 0) { width = 1; }
+                if (height === void 0) { height = 1; }
+                return this.context.getImageData(x, y, width, height).data;
             };
             /**
              * 转换成base64字符串，如果图片（或者包含的图片）跨域，则返回null
@@ -3952,7 +4112,7 @@ var egret;
             var offsetY = Math.round(bitmapData._offsetY);
             var bitmapWidth = bitmapData._bitmapWidth;
             var bitmapHeight = bitmapData._bitmapHeight;
-            buffer.context.drawImage(bitmapData._bitmapData, bitmapData._bitmapX + rect.x / egret.$TextureScaleFactor, bitmapData._bitmapY + rect.y / egret.$TextureScaleFactor, bitmapWidth * rect.width / w, bitmapHeight * rect.height / h, offsetX, offsetY, rect.width, rect.height);
+            buffer.context.drawImage(bitmapData._bitmapData.source, bitmapData._bitmapX + rect.x / egret.$TextureScaleFactor, bitmapData._bitmapY + rect.y / egret.$TextureScaleFactor, bitmapWidth * rect.width / w, bitmapHeight * rect.height / h, offsetX, offsetY, rect.width, rect.height);
             return surface;
         }
         /**
@@ -3983,9 +4143,14 @@ var egret;
             egret.$error(1035);
             return null;
         }
+        function getPixels(x, y, width, height) {
+            egret.$error(1035);
+            return null;
+        }
         egret.Texture.prototype.toDataURL = toDataURL;
         egret.Texture.prototype.saveToFile = saveToFile;
         egret.Texture.prototype.getPixel32 = getPixel32;
+        egret.Texture.prototype.getPixels = getPixels;
     })(native = egret.native || (egret.native = {}));
 })(egret || (egret = {}));
 //////////////////////////////////////////////////////////////////////////////////////
@@ -4168,7 +4333,7 @@ var egret;
                 /*
                  * 存储字符串的数组
                  */
-                this.strArray = new Array();
+                this.strArray = [];
             }
             var d = __define,c=CmdManager,p=c.prototype;
             /*
@@ -4683,9 +4848,9 @@ var egret;
         if (DEBUG) {
             egret.log = function () {
                 if (DEBUG) {
-                    var length = arguments.length;
+                    var length_8 = arguments.length;
                     var info = "";
-                    for (var i = 0; i < length; i++) {
+                    for (var i = 0; i < length_8; i++) {
                         info += arguments[i] + " ";
                     }
                     egret.sys.$logToFPS(info);
@@ -5712,14 +5877,14 @@ var egret;
                 this.loading = true;
                 this.loaded = false;
                 if (cache && !egret_native.isFileExists(url)) {
-                    var self = this;
+                    var self_1 = this;
                     var promise = egret.PromiseObject.create();
                     promise.onSuccessFunc = function () {
-                        self.loadEnd();
+                        self_1.loadEnd();
                     };
                     promise.onErrorFunc = function () {
                         egret.$warn(1048);
-                        self.dispatchEventWith(egret.IOErrorEvent.IO_ERROR);
+                        self_1.dispatchEventWith(egret.IOErrorEvent.IO_ERROR);
                     };
                     egret_native.download(url, url, promise);
                 }
@@ -6605,7 +6770,7 @@ var egret;
                     var promise = egret.PromiseObject.create();
                     promise.onSuccessFunc = function (getted_str) {
                         self._response = getted_str;
-                        egret.callLater(egret.Event.dispatchEvent, egret.Event, self, egret.Event.COMPLETE);
+                        egret.$callAsync(egret.Event.dispatchEvent, egret.Event, self, egret.Event.COMPLETE);
                     };
                     promise.onErrorFunc = function (error_code) {
                         egret.$warn(1019, error_code);
@@ -6958,6 +7123,8 @@ var egret;
              */
             p.$show = function () {
                 var self = this;
+                var textfield = this.$textfield;
+                var values = textfield.$TextField;
                 egret_native.TextInputOp.setKeybordOpen(false);
                 egret_native.EGT_getTextEditerContentText = function () {
                     return self.$getText();
@@ -6968,13 +7135,16 @@ var egret;
                     self.showScreenKeyboard();
                     egret_native.EGT_keyboardDidShow = function () {
                     };
+                    if (egret_native.TextInputOp.updateConfig) {
+                        egret_native.TextInputOp.updateConfig(JSON.stringify({
+                            "font_color": values[2 /* textColor */]
+                        }));
+                    }
                 };
                 egret_native.EGT_keyboardDidHide = function () {
                 };
                 egret_native.EGT_deleteBackward = function () {
                 };
-                var textfield = this.$textfield;
-                var values = textfield.$TextField;
                 var inputType = values[37 /* inputType */];
                 var inputMode = values[30 /* multiline */] ? 0 : 6;
                 var inputFlag = -1; //textfield.displayAsPassword ? 0 : -1;
@@ -7133,6 +7303,8 @@ var egret;
          */
         function parse(text) {
             var xmlDocStr = egret_native.xmlStr2JsonStr(text);
+            //替换换行符
+            xmlDocStr = xmlDocStr.replace(/\n/g, "\\n");
             var xmlDoc = JSON.parse(xmlDocStr);
             return parseNode(xmlDoc, null);
         }
@@ -7148,7 +7320,7 @@ var egret;
             var nodeAttributes = node.attributes;
             var attributes = xml.attributes;
             for (var key in nodeAttributes) {
-                attributes[key] = nodeAttributes[key];
+                attributes[key] = xml["$" + key] = nodeAttributes[key];
             }
             var childNodes = node.children;
             var length = childNodes.length;

@@ -34,6 +34,7 @@ class Main extends egret.DisplayObjectContainer
      * 加载进度界面
      * Process interface loading
      */
+
     private loadingView:LoadingUI;
 
     public constructor() 
@@ -44,11 +45,9 @@ class Main extends egret.DisplayObjectContainer
 
     private _onAddToStage(event:egret.Event) 
     {
-        //设置加载进度界面
-        //Config to load process interface
+     
         this.loadingView = new LoadingUI();
         this.stage.addChild(this.loadingView);
-
         //初始化Resource资源加载库
         //initiate Resource loading library
         RES.addEventListener(RES.ResourceEvent.CONFIG_COMPLETE, this.onConfigComplete, this);
@@ -68,7 +67,6 @@ class Main extends egret.DisplayObjectContainer
         RES.addEventListener(RES.ResourceEvent.ITEM_LOAD_ERROR, this.onItemLoadError, this);
         RES.loadGroup("preload");
     }
-
     /**
      * preload资源组加载完成
      * Preload resource group is loaded
@@ -85,7 +83,6 @@ class Main extends egret.DisplayObjectContainer
             this.createGameScene();
         }
     }
-
     /**
      * 资源组加载出错
      *  The resource group loading failed
@@ -94,7 +91,6 @@ class Main extends egret.DisplayObjectContainer
     {
         console.warn("Url:" + event.resItem.url + " has failed to load");
     }
-
     /**
      * 资源组加载出错
      *  The resource group loading failed
@@ -121,43 +117,52 @@ class Main extends egret.DisplayObjectContainer
     }
 
     private textfield:egret.TextField;
+    public People:Player = new Player();
+    public PreviousPoint:egret.Point = new egret.Point();
 
-    /**
-     * 创建游戏场景
-     * Create a game scene
-     */
     private createGameScene():void 
     {
-        //添背景
-        var sky:egret.Bitmap = this.createBitmapByName("bg_jpg");
-        this.addChild(sky);
-        var stageW:number = this.stage.stageWidth;
-        var stageH:number = this.stage.stageHeight;
-        sky.width = stageW;
-        sky.height = stageH;
+       //添背景
+        var background:egret.Bitmap = this.createBitmapByName("background_png");
+        this.addChild(background);
+        background.width = 640;
+        background.height = 480;
 
-        //创建Player类型的people
-        var people : Player = new Player();
-        people.x = 300;
-        people.y = 300;
-        this.addChild(people);
-        people.idle();
-        //people.idle(100,100);
+        //添加人物
+        var peoplepicture:egret.Bitmap = this.createBitmapByName("characterfront_01_png");
+        this.People.SetPeopleBitmap(peoplepicture);
+        this.addChild(this.People.PeopleBitmap);
+        this.People.PeopleBitmap.height = 64;
+        this.People.PeopleBitmap.width= 64;
+        this.People.PeopleBitmap.x = 200;
+        this.People.PeopleBitmap.y = 100;
 
-        //让物体跟着鼠标移动(未加缓动)
-        this.stage.addEventListener(egret.TouchEvent.TOUCH_BEGIN,( evt:egret.TouchEvent)=>{
-            people.x = evt.localX;
-            people.y = evt.localY;
+        this.stage.addEventListener(egret.TouchEvent.TOUCH_BEGIN,(e:egret.TouchEvent)=>{
+            egret.Tween.removeTweens(this.People.PeopleBitmap);
+            this.People.SetState(new PeopleWalk(),this);
+            var distanceX = e.stageX - this.People.PeopleBitmap.x;
+            var distanceY = e.stageY - this.People.PeopleBitmap.y;
+            this.PreviousPoint.x = e.stageX;
+            this.PreviousPoint.y = e.stageY;
+            if(distanceX >= 0)
+            {
+                this.People.SetDirection(new PeopleWalkrightState(),this);
+            }
+            if(distanceX < 0)
+            {
+                this.People.SetDirection(new PeopleWalkleftState(),this);
+            }
+            egret.Tween.get(this.People.PeopleBitmap).to({ x:e.stageX, y:e.stageY},Math.abs(distanceX) * 5 + Math.abs(distanceY) * 5)
         },this);
 
-
+        this.PeopleAnimation();
     }
-   
-    /**
+
+  /**
      * 根据name关键字创建一个Bitmap对象。name属性请参考resources/resource.json配置文件的内容。
      * Create a Bitmap object according to name keyword.As for the property of name please refer to the configuration file of resources/resource.json.
      */
-    private createBitmapByName(name:string):egret.Bitmap 
+    private createBitmapByName(name:string): egret.Bitmap 
     {
         var result = new egret.Bitmap();
         var texture:egret.Texture = RES.getRes(name);
@@ -165,178 +170,89 @@ class Main extends egret.DisplayObjectContainer
         return result;
     }
 
-
-    
-}
-
-class Player extends egret.DisplayObjectContainer
-{
-    private loadingView:LoadingUI;
-    _state:StateMachine;
-    _people:egret.Bitmap;
-    _ifIdle:boolean;
-    _ifWalk:boolean;
-
-    public constructor() 
+    public PeopleAnimation()
     {
-        super();
-        this.addEventListener(egret.Event.ADDED_TO_STAGE, this._onAddToStage, this);
-    }
+        var idleList = ["Idle1_png","Idle2_png","Idle3_png","Idle4_png","Idle32_png"];
+        //var idleList = ["characterfront_01_png","characterfront_02_png","characterfront_03_png","characterfront_04_png"];
+        var walkRightList = ["right1_png","right2_png","right3_png","right4_png"];
+        var walkLeftList = ["left1_png","left2_png","left3_png","left4_png"];
 
-    private _onAddToStage(event:egret.Event) 
-    {
-        //设置加载进度界面
-        //Config to load process interface
-        this.loadingView = new LoadingUI();
-        this.stage.addChild(this.loadingView);
+        var self:any = this;
+        var idleframe = 0;
+        var walkRightFrame = 0;
+        var walkLeftFrame = 0;
+        var frame = 0;
 
-        //初始化Resource资源加载库
-        //initiate Resource loading library
-        RES.addEventListener(RES.ResourceEvent.CONFIG_COMPLETE, this.createPeople, this);
-        RES.loadConfig("resource/default.res.json", "resource/");
-    }
-    
-    
-  
-    
-
-    public createPeople():void
-    {
-        this._state = new StateMachine();
-        this._people = new egret.Bitmap();
-        var _texture:egret.Texture = RES.getRes("1_jpg");
-        this._people.texture = _texture;
-        this._ifIdle = true;
-        this._ifWalk = false;
-        this.addChild(this._people);
-    }
-
-    public idle()
-    {
-        this._state.setState(new PeopleIdleState(this));
-    }
-
-    public walk()
-    {
-        //this._state.setState(new PeopleWalkState(this));
-    }
-
-    public StartIdle()
-    {
-       var list = ["1_jpg","2_jpg","3_jpg","4_jpg"];
-       var num:number = -1;
-       num = num+0.2;
-        if(num >list.length)
-           {num = 0;}
-           this._people.texture = RES.getRes(list[num]);
-           var _people2:egret.Bitmap;
-           _people2.texture = RES.getRes(list[num+1]);
-       egret.setTimeout(()=>
-       {
-           
-           this._people.texture;
-       },_people2.texture,2000)
-
-       //egret.Ticker.getInstance().register(()=>
-       //{
-         //  num = num +1;
-           //if(num>list.length)
-           //{
-             //  num = 0;
-           //}
-           //this._people.texture = RES.getRes(list[Math.floor(num)]);
-       //},this);
-
-       
-    }
-}
-
-//状态机
-class StateMachine 
-{
-    _currentMachine: State;
-    setState(s:State)
-    {
-        if(this._currentMachine)
+        var Move:Function = function()
         {
-            this._currentMachine.onExit();
+            egret.Ticker.getInstance().register(()=>{
+                if(frame%4 == 0)
+                {
+                    if(self.People.GetIdle() && !self.People.GetWalk())
+                    {
+                        walkLeftFrame = 0;
+                        walkRightFrame = 0;
+                        var idletextureName = idleList[idleframe]
+                        var idletexture : egret.Bitmap = RES.getRes(idletextureName);
+                        self.People.PeopleBitmap.texture = idletexture;
+                        idleframe++;
+                        if(idleframe >= idleList.length)
+                        {
+                            idleframe=0;
+                        }
+                    }
+
+                    if(!self.People.GetIdle() && self.People.GetWalk() && self.People.GetWalkright())
+                    {
+                        idleframe = 0;
+                        walkLeftFrame = 0;
+                        var walkrighttextureName = walkRightList[walkRightFrame];
+                        var walkrighttexture : egret.Bitmap = RES.getRes(walkrighttextureName);
+                        self.People.PeopleBitmap.texture = walkrighttexture;
+                        walkRightFrame++;
+                        if(walkRightFrame >= walkRightList.length)
+                        {
+                            walkRightFrame = 0;
+                        }
+                    }
+
+                    if(!self.People.GetIdle() && self.People.GetWalk() && self.People.GetWalkleft())
+                    {
+                        idleframe = 0;
+                        walkRightFrame = 0;
+                        var walklefttextureName = walkLeftList[walkLeftFrame];
+                        var walklefttexture : egret.Bitmap = RES.getRes(walklefttextureName);
+                        self.People.PeopleBitmap.texture = walklefttexture;
+                        walkLeftFrame++;
+                        if(walkLeftFrame >= walkLeftList.length)
+                        {
+                            walkLeftFrame = 0;
+                        }
+                    }
+                }
+
+                if(self.People.PeopleBitmap.x == self.PreviousPoint.x && self.People.PeopleBitmap.y == self.PreviousPoint.y)
+                {
+                    self.People.SetState(new PeopleIdle(),self);
+                }
+
+
+            },self);
         }
-        //s.stateMachine = this;
-        this._currentMachine = s;
-        this._currentMachine.onEnter();
-    }
-}
 
-//作为一个接口
-interface State
-{
-    //stateMachine:StateMachine;
+        var FramaPlus:Function = function()
+        {
+            egret.Ticker.getInstance().register(()=>{
+                frame++;
+                if(frame == 400 )
+                {
+                    frame = 0;
+                }
 
-    onEnter();
+            },self)
+        }
 
-    onExit();
-
-}
-
-//继承State （正确）
-class PeopleState implements State
-{
-    //stateMachine:StateMachine;
-    _people:Player;
-
-    constructor(people:Player)
-    {
-        this._people = people;
-    }
-
-    onEnter()
-    {
-
-    }
-
-    onExit()
-    {
-
-    }
-}
-
-class PeopleIdle_1State extends PeopleState
-{
-    onEnter()
-    {
-       
-    }
-
-    onExit()
-    {
-
-    }
-}
-
-class PeopleIdleState extends PeopleState
-{
-    onEnter()
-    {
-       this._people._ifIdle = true;
-       this._people.StartIdle();
-    }
-
-    onExit()
-    {
-        this._people._ifIdle = false;
-    }
-}
-
-class PeopleWalkState extends PeopleState
-{
-    //super();
-    onEnter()
-    {
-
-    }
-
-    onExit()
-    {
-
+        Move();
+        FramaPlus();
     }
 }

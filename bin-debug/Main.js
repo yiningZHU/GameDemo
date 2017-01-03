@@ -30,12 +30,12 @@ var Main = (function (_super) {
     __extends(Main, _super);
     function Main() {
         _super.call(this);
+        this.People = new Player();
+        this.PreviousPoint = new egret.Point();
         this.addEventListener(egret.Event.ADDED_TO_STAGE, this._onAddToStage, this);
     }
     var d = __define,c=Main,p=c.prototype;
     p._onAddToStage = function (event) {
-        //设置加载进度界面
-        //Config to load process interface
         this.loadingView = new LoadingUI();
         this.stage.addChild(this.loadingView);
         //初始化Resource资源加载库
@@ -96,172 +96,111 @@ var Main = (function (_super) {
             this.loadingView.setProgress(event.itemsLoaded, event.itemsTotal);
         }
     };
-    /**
-     * 创建游戏场景
-     * Create a game scene
-     */
     p.createGameScene = function () {
+        var _this = this;
         //添背景
-        var sky = this.createBitmapByName("bg_jpg");
-        this.addChild(sky);
-        var stageW = this.stage.stageWidth;
-        var stageH = this.stage.stageHeight;
-        sky.width = stageW;
-        sky.height = stageH;
-        //创建Player类型的people
-        var people = new Player();
-        people.x = 300;
-        people.y = 300;
-        this.addChild(people);
-        people.idle();
-        //people.idle(100,100);
-        //让物体跟着鼠标移动(未加缓动)
-        this.stage.addEventListener(egret.TouchEvent.TOUCH_BEGIN, function (evt) {
-            people.x = evt.localX;
-            people.y = evt.localY;
+        var background = this.createBitmapByName("background_png");
+        this.addChild(background);
+        background.width = 640;
+        background.height = 480;
+        //添加人物
+        var peoplepicture = this.createBitmapByName("characterfront_01_png");
+        this.People.SetPeopleBitmap(peoplepicture);
+        this.addChild(this.People.PeopleBitmap);
+        this.People.PeopleBitmap.height = 64;
+        this.People.PeopleBitmap.width = 64;
+        this.People.PeopleBitmap.x = 200;
+        this.People.PeopleBitmap.y = 100;
+        this.stage.addEventListener(egret.TouchEvent.TOUCH_BEGIN, function (e) {
+            egret.Tween.removeTweens(_this.People.PeopleBitmap);
+            _this.People.SetState(new PeopleWalk(), _this);
+            var distanceX = e.stageX - _this.People.PeopleBitmap.x;
+            var distanceY = e.stageY - _this.People.PeopleBitmap.y;
+            _this.PreviousPoint.x = e.stageX;
+            _this.PreviousPoint.y = e.stageY;
+            if (distanceX >= 0) {
+                _this.People.SetDirection(new PeopleWalkrightState(), _this);
+            }
+            if (distanceX < 0) {
+                _this.People.SetDirection(new PeopleWalkleftState(), _this);
+            }
+            egret.Tween.get(_this.People.PeopleBitmap).to({ x: e.stageX, y: e.stageY }, Math.abs(distanceX) * 5 + Math.abs(distanceY) * 5);
         }, this);
+        this.PeopleAnimation();
     };
     /**
-     * 根据name关键字创建一个Bitmap对象。name属性请参考resources/resource.json配置文件的内容。
-     * Create a Bitmap object according to name keyword.As for the property of name please refer to the configuration file of resources/resource.json.
-     */
+       * 根据name关键字创建一个Bitmap对象。name属性请参考resources/resource.json配置文件的内容。
+       * Create a Bitmap object according to name keyword.As for the property of name please refer to the configuration file of resources/resource.json.
+       */
     p.createBitmapByName = function (name) {
         var result = new egret.Bitmap();
         var texture = RES.getRes(name);
         result.texture = texture;
         return result;
     };
+    p.PeopleAnimation = function () {
+        var idleList = ["Idle1_png", "Idle2_png", "Idle3_png", "Idle4_png", "Idle32_png"];
+        //var idleList = ["characterfront_01_png","characterfront_02_png","characterfront_03_png","characterfront_04_png"];
+        var walkRightList = ["right1_png", "right2_png", "right3_png", "right4_png"];
+        var walkLeftList = ["left1_png", "left2_png", "left3_png", "left4_png"];
+        var self = this;
+        var idleframe = 0;
+        var walkRightFrame = 0;
+        var walkLeftFrame = 0;
+        var frame = 0;
+        var Move = function () {
+            egret.Ticker.getInstance().register(function () {
+                if (frame % 4 == 0) {
+                    if (self.People.GetIdle() && !self.People.GetWalk()) {
+                        walkLeftFrame = 0;
+                        walkRightFrame = 0;
+                        var idletextureName = idleList[idleframe];
+                        var idletexture = RES.getRes(idletextureName);
+                        self.People.PeopleBitmap.texture = idletexture;
+                        idleframe++;
+                        if (idleframe >= idleList.length) {
+                            idleframe = 0;
+                        }
+                    }
+                    if (!self.People.GetIdle() && self.People.GetWalk() && self.People.GetWalkright()) {
+                        idleframe = 0;
+                        walkLeftFrame = 0;
+                        var walkrighttextureName = walkRightList[walkRightFrame];
+                        var walkrighttexture = RES.getRes(walkrighttextureName);
+                        self.People.PeopleBitmap.texture = walkrighttexture;
+                        walkRightFrame++;
+                        if (walkRightFrame >= walkRightList.length) {
+                            walkRightFrame = 0;
+                        }
+                    }
+                    if (!self.People.GetIdle() && self.People.GetWalk() && self.People.GetWalkleft()) {
+                        idleframe = 0;
+                        walkRightFrame = 0;
+                        var walklefttextureName = walkLeftList[walkLeftFrame];
+                        var walklefttexture = RES.getRes(walklefttextureName);
+                        self.People.PeopleBitmap.texture = walklefttexture;
+                        walkLeftFrame++;
+                        if (walkLeftFrame >= walkLeftList.length) {
+                            walkLeftFrame = 0;
+                        }
+                    }
+                }
+                if (self.People.PeopleBitmap.x == self.PreviousPoint.x && self.People.PeopleBitmap.y == self.PreviousPoint.y) {
+                    self.People.SetState(new PeopleIdle(), self);
+                }
+            }, self);
+        };
+        var FramaPlus = function () {
+            egret.Ticker.getInstance().register(function () {
+                frame++;
+                if (frame == 400) {
+                    frame = 0;
+                }
+            }, self);
+        };
+        Move();
+        FramaPlus();
+    };
     return Main;
 }(egret.DisplayObjectContainer));
 egret.registerClass(Main,'Main');
-var Player = (function (_super) {
-    __extends(Player, _super);
-    function Player() {
-        _super.call(this);
-        this.addEventListener(egret.Event.ADDED_TO_STAGE, this._onAddToStage, this);
-    }
-    var d = __define,c=Player,p=c.prototype;
-    p._onAddToStage = function (event) {
-        //设置加载进度界面
-        //Config to load process interface
-        this.loadingView = new LoadingUI();
-        this.stage.addChild(this.loadingView);
-        //初始化Resource资源加载库
-        //initiate Resource loading library
-        RES.addEventListener(RES.ResourceEvent.CONFIG_COMPLETE, this.createPeople, this);
-        RES.loadConfig("resource/default.res.json", "resource/");
-    };
-    p.createPeople = function () {
-        this._state = new StateMachine();
-        this._people = new egret.Bitmap();
-        var _texture = RES.getRes("1_jpg");
-        this._people.texture = _texture;
-        this._ifIdle = true;
-        this._ifWalk = false;
-        this.addChild(this._people);
-    };
-    p.idle = function () {
-        this._state.setState(new PeopleIdleState(this));
-    };
-    p.walk = function () {
-        //this._state.setState(new PeopleWalkState(this));
-    };
-    p.StartIdle = function () {
-        var _this = this;
-        var list = ["1_jpg", "2_jpg", "3_jpg", "4_jpg"];
-        var num = -1;
-        num = num + 0.2;
-        if (num > list.length) {
-            num = 0;
-        }
-        this._people.texture = RES.getRes(list[num]);
-        var _people2;
-        _people2.texture = RES.getRes(list[num + 1]);
-        egret.setTimeout(function () {
-            _this._people.texture;
-        }, _people2.texture, 2000);
-        //egret.Ticker.getInstance().register(()=>
-        //{
-        //  num = num +1;
-        //if(num>list.length)
-        //{
-        //  num = 0;
-        //}
-        //this._people.texture = RES.getRes(list[Math.floor(num)]);
-        //},this);
-    };
-    return Player;
-}(egret.DisplayObjectContainer));
-egret.registerClass(Player,'Player');
-//状态机
-var StateMachine = (function () {
-    function StateMachine() {
-    }
-    var d = __define,c=StateMachine,p=c.prototype;
-    p.setState = function (s) {
-        if (this._currentMachine) {
-            this._currentMachine.onExit();
-        }
-        //s.stateMachine = this;
-        this._currentMachine = s;
-        this._currentMachine.onEnter();
-    };
-    return StateMachine;
-}());
-egret.registerClass(StateMachine,'StateMachine');
-//继承State （正确）
-var PeopleState = (function () {
-    function PeopleState(people) {
-        this._people = people;
-    }
-    var d = __define,c=PeopleState,p=c.prototype;
-    p.onEnter = function () {
-    };
-    p.onExit = function () {
-    };
-    return PeopleState;
-}());
-egret.registerClass(PeopleState,'PeopleState',["State"]);
-var PeopleIdle_1State = (function (_super) {
-    __extends(PeopleIdle_1State, _super);
-    function PeopleIdle_1State() {
-        _super.apply(this, arguments);
-    }
-    var d = __define,c=PeopleIdle_1State,p=c.prototype;
-    p.onEnter = function () {
-    };
-    p.onExit = function () {
-    };
-    return PeopleIdle_1State;
-}(PeopleState));
-egret.registerClass(PeopleIdle_1State,'PeopleIdle_1State');
-var PeopleIdleState = (function (_super) {
-    __extends(PeopleIdleState, _super);
-    function PeopleIdleState() {
-        _super.apply(this, arguments);
-    }
-    var d = __define,c=PeopleIdleState,p=c.prototype;
-    p.onEnter = function () {
-        this._people._ifIdle = true;
-        this._people.StartIdle();
-    };
-    p.onExit = function () {
-        this._people._ifIdle = false;
-    };
-    return PeopleIdleState;
-}(PeopleState));
-egret.registerClass(PeopleIdleState,'PeopleIdleState');
-var PeopleWalkState = (function (_super) {
-    __extends(PeopleWalkState, _super);
-    function PeopleWalkState() {
-        _super.apply(this, arguments);
-    }
-    var d = __define,c=PeopleWalkState,p=c.prototype;
-    //super();
-    p.onEnter = function () {
-    };
-    p.onExit = function () {
-    };
-    return PeopleWalkState;
-}(PeopleState));
-egret.registerClass(PeopleWalkState,'PeopleWalkState');

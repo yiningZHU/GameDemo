@@ -723,10 +723,6 @@ var egret;
             /**
              * @private
              */
-            this._actions = null;
-            /**
-             * @private
-             */
             this.paused = false;
             /**
              * @private
@@ -875,11 +871,11 @@ var egret;
             Tween._lastTime = timeStamp;
             var tweens = Tween._tweens.concat();
             for (var i = tweens.length - 1; i >= 0; i--) {
-                var tween = tweens[i];
-                if ((paused && !tween.ignoreGlobalPause) || tween.paused) {
+                var tween_1 = tweens[i];
+                if ((paused && !tween_1.ignoreGlobalPause) || tween_1.paused) {
                     continue;
                 }
-                tween.tick(tween._useTicks ? 1 : delta);
+                tween_1.$tick(tween_1._useTicks ? 1 : delta);
             }
             return false;
         };
@@ -931,9 +927,9 @@ var egret;
         Tween.removeAllTweens = function () {
             var tweens = Tween._tweens;
             for (var i = 0, l = tweens.length; i < l; i++) {
-                var tween = tweens[i];
-                tween.paused = true;
-                tween._target.tweenjs_count = 0;
+                var tween_2 = tweens[i];
+                tween_2.paused = true;
+                tween_2._target.tweenjs_count = 0;
             }
             tweens.length = 0;
         };
@@ -959,7 +955,6 @@ var egret;
             this._curQueueProps = {};
             this._initQueueProps = {};
             this._steps = [];
-            this._actions = [];
             if (props && props.paused) {
                 this.paused = true;
             }
@@ -997,41 +992,50 @@ var egret;
             if (t == this._prevPos) {
                 return end;
             }
+            if (end) {
+                this.setPaused(true);
+            }
             var prevPos = this._prevPos;
             this.position = this._prevPos = t;
             this._prevPosition = value;
             if (this._target) {
-                if (end) {
-                    //结束
-                    this._updateTargetProps(null, 1);
-                }
-                else if (this._steps.length > 0) {
+                if (this._steps.length > 0) {
                     // 找到新的tween
-                    for (var i = 0, l = this._steps.length; i < l; i++) {
-                        if (this._steps[i].t > t) {
-                            break;
+                    var l = this._steps.length;
+                    var stepIndex = -1;
+                    for (var i = 0; i < l; i++) {
+                        if (this._steps[i].type == "step") {
+                            stepIndex = i;
+                            if (this._steps[i].t <= t && this._steps[i].t + this._steps[i].d >= t) {
+                                break;
+                            }
                         }
                     }
-                    var step = this._steps[i - 1];
-                    this._updateTargetProps(step, (this._stepPosition = t - step.t) / step.d);
-                }
-            }
-            if (end) {
-                this.setPaused(true);
-            }
-            //执行actions
-            if (actionsMode != 0 && this._actions.length > 0) {
-                if (this._useTicks) {
-                    this._runActions(t, t);
-                }
-                else if (actionsMode == 1 && t < prevPos) {
-                    if (prevPos != this.duration) {
-                        this._runActions(prevPos, this.duration);
+                    for (var i = 0; i < l; i++) {
+                        if (this._steps[i].type == "action") {
+                            //执行actions
+                            if (actionsMode != 0) {
+                                if (this._useTicks) {
+                                    this._runAction(this._steps[i], t, t);
+                                }
+                                else if (actionsMode == 1 && t < prevPos) {
+                                    if (prevPos != this.duration) {
+                                        this._runAction(this._steps[i], prevPos, this.duration);
+                                    }
+                                    this._runAction(this._steps[i], 0, t, true);
+                                }
+                                else {
+                                    this._runAction(this._steps[i], prevPos, t);
+                                }
+                            }
+                        }
+                        else if (this._steps[i].type == "step") {
+                            if (stepIndex == i) {
+                                var step = this._steps[stepIndex];
+                                this._updateTargetProps(step, Math.min((this._stepPosition = t - step.t) / step.d, 1));
+                            }
+                        }
                     }
-                    this._runActions(0, t, true);
-                }
-                else {
-                    this._runActions(prevPos, t);
                 }
             }
             this.dispatchEventWith("change");
@@ -1044,26 +1048,18 @@ var egret;
          * @param endPos
          * @param includeStart
          */
-        p._runActions = function (startPos, endPos, includeStart) {
+        p._runAction = function (action, startPos, endPos, includeStart) {
             if (includeStart === void 0) { includeStart = false; }
             var sPos = startPos;
             var ePos = endPos;
-            var i = -1;
-            var j = this._actions.length;
-            var k = 1;
             if (startPos > endPos) {
                 //把所有的倒置
                 sPos = endPos;
                 ePos = startPos;
-                i = j;
-                j = k = -1;
             }
-            while ((i += k) != j) {
-                var action = this._actions[i];
-                var pos = action.t;
-                if (pos == ePos || (pos > sPos && pos < ePos) || (includeStart && pos == startPos)) {
-                    action.f.apply(action.o, action.p);
-                }
+            var pos = action.t;
+            if (pos == ePos || (pos > sPos && pos < ePos) || (includeStart && pos == startPos)) {
+                action.f.apply(action.o, action.p);
             }
         };
         /**
@@ -1163,6 +1159,7 @@ var egret;
          */
         p._addStep = function (o) {
             if (o.d > 0) {
+                o.type = "step";
                 this._steps.push(o);
                 o.t = this.duration;
                 this.duration += o.d;
@@ -1217,7 +1214,8 @@ var egret;
          */
         p._addAction = function (o) {
             o.t = this.duration;
-            this._actions.push(o);
+            o.type = "action";
+            this._steps.push(o);
             return this;
         };
         /**
@@ -1281,14 +1279,16 @@ var egret;
             if (isNaN(duration) || duration < 0) {
                 duration = 0;
             }
-            return this._addStep({ d: duration || 0, p0: this._cloneProps(this._curQueueProps), e: ease, p1: this._cloneProps(this._appendQueueProps(props)) });
+            this._addStep({ d: duration || 0, p0: this._cloneProps(this._curQueueProps), e: ease, p1: this._cloneProps(this._appendQueueProps(props)) });
+            //加入一步set，防止游戏极其卡顿时候，to后面的call取到的属性值不对
+            return this.set(props);
         };
         /**
          * @language en_US
          * Execute callback function
          * @param callback {Function} Callback method
          * @param thisObj {any} this action scope of the callback method
-         * @param params {Array<any>} Parameter of the callback method
+         * @param params {any[]} Parameter of the callback method
          * @returns {egret.Tween} Tween object itself
          * @version Egret 2.4
          * @platform Web,Native
@@ -1305,7 +1305,7 @@ var egret;
          * 执行回调函数
          * @param callback {Function} 回调方法
          * @param thisObj {any} 回调方法this作用域
-         * @param params {Array<any>} 回调方法参数
+         * @param params {any[]} 回调方法参数
          * @returns {egret.Tween} Tween对象本身
          * @version Egret 2.4
          * @platform Web,Native
@@ -1395,7 +1395,7 @@ var egret;
          * @version Egret 2.4
          * @platform Web,Native
          */
-        p.tick = function (delta) {
+        p.$tick = function (delta) {
             if (this.paused) {
                 return;
             }
@@ -1874,7 +1874,7 @@ var egret;
                     this.tween.set(path.props);
                 }
                 else if (path instanceof Tick) {
-                    this.tween.tick(path.delta);
+                    this.tween.$tick(path.delta);
                 }
                 this.tween.call(function () { return _this.pathComplete(path); });
             };
